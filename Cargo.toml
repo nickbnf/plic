@@ -1,0 +1,7 @@
+[package]
+name = "plic"
+version = "0.1.0"
+authors = ["Nicolas Bonnefon <nicolas@bonnefon.org>"]
+
+[dependencies]
+rustyline = "1.0.0"
