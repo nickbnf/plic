@@ -1,5 +1,7 @@
 extern crate rustyline;
 
+mod lexer;
+
 fn main() {
     repl();
 }
