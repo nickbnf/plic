@@ -1,3 +1,5 @@
+#[macro_use] extern crate matches;
+
 extern crate rustyline;
 
 mod lexer;
@@ -18,30 +20,12 @@ fn repl() {
 }
 
 fn evaluate_line( line: String ) {
-    let mut tokens = code_tokens( &line );
+    let mut tokens = lexer::tokens( &line );
     loop {
         match tokens.next() {
-            Some(token) => println!( "Token: {}", token ),
+            Some(token) => println!( "Token: {:?}", token ),
             None        => return(),
         }
     }
 }
 
-fn code_tokens<'a>( code: &'a String ) -> PelicCodeTokens<'a> {
-    PelicCodeTokens { iter: code.chars() }
-}
-
-struct PelicCodeTokens<'a> {
-    iter: std::str::Chars<'a>,
-}
-
-impl<'a> Iterator for PelicCodeTokens<'a> {
-    type Item = String;
-    fn next(&mut self) -> Option<String> {
-        let c = self.iter.next();
-        match c {
-            Some(car) => Some(car.to_string()),
-            None      => None
-        }
-    }
-}
