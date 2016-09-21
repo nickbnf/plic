@@ -15,6 +15,7 @@ pub enum Token {
     Multiply,
     Divide,
     Illegal,
+    Number( usize )
 }
 
 pub struct CodeTokens<'a> {
@@ -25,6 +26,7 @@ impl<'a> Iterator for CodeTokens<'a> {
     type Item = Token;
     fn next(&mut self) -> Option<Token> {
         let c = self.iter.next();
+        println!( "Token: {:?}", c );
         match c {
             Some(car) => match car {
                 '(' => Some(Token::ParenOpen),
@@ -33,6 +35,13 @@ impl<'a> Iterator for CodeTokens<'a> {
                 '-' => Some(Token::Minus),
                 '*' => Some(Token::Multiply),
                 '/' => Some(Token::Divide),
+                n @ '0' ... '9' => {
+                    let res = usize::from_str_radix(&n.to_string(), 10);
+                    match res {
+                        Ok( number ) => Some(Token::Number( number )),
+                        _ => panic!()
+                    }
+                },
                 _ => Some(Token::Illegal)
             },
             None      => None
@@ -53,6 +62,17 @@ mod tests {
         assert!( matches!( tokens.next(), Some(super::Token::Minus) ) );
         assert!( matches!( tokens.next(), Some(super::Token::Multiply) ) );
         assert!( matches!( tokens.next(), Some(super::Token::Divide) ) );
+        assert!( matches!( tokens.next(), None ) );
+    }
+
+    #[test]
+    fn recognise_numbers() {
+        let string = "1239";
+        let mut tokens = super::tokens( string );
+        assert!( matches!( tokens.next(), Some(super::Token::Number(1)) ) );
+        assert!( matches!( tokens.next(), Some(super::Token::Number(2)) ) );
+        assert!( matches!( tokens.next(), Some(super::Token::Number(3)) ) );
+        assert!( matches!( tokens.next(), Some(super::Token::Number(9)) ) );
         assert!( matches!( tokens.next(), None ) );
     }
 }
