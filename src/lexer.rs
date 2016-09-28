@@ -6,7 +6,7 @@ pub fn tokens<'a>( code: &'a str ) -> CodeTokens<'a> {
     CodeTokens { iter: code.chars() }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Token {
     ParenOpen,
     ParenClose,
