@@ -4,6 +4,8 @@ mod builtins;
 
 use lexer;
 
+use std::fmt;
+
 /// A fully-reduced expression
 pub enum PlicType {
     Integer(usize),
@@ -11,6 +13,16 @@ pub enum PlicType {
         function: fn( mut operands: Vec<PlicType> ) -> Result<PlicType,EvalError>
     },
     Illegal
+}
+
+impl fmt::Display for PlicType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &PlicType::Integer( n ) => write!(f, "{}", n),
+            &PlicType::Operation { function: _ } => write!(f, "Built-in operation"),
+            _ => write!(f, "Unknown")
+        }
+    }
 }
 
 /// An error returned by the evaluator
@@ -23,12 +35,23 @@ pub enum EvalError {
     Other
 }
 
+impl fmt::Display for EvalError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &EvalError::NonApplicable => write!(f, "Operation not applicable"),
+            &EvalError::Other => write!(f, "Error"),
+            _ => write!(f, "Unknown")
+        }
+    }
+}
+
+
 /// Parse and evaluate the passed string
-pub fn evaluate_line( line: String ) -> Result<usize,()> {
+pub fn evaluate_line( line: String ) -> Result<String,String> {
     let mut tokens = lexer::tokens( &line );
     match evaluate_expression( &mut tokens ) {
-        Ok(PlicType::Integer(n)) => Ok(n),
-        _ => Err(()),
+        Ok( r ) => Ok( format!( "{}", r ) ),
+        Err( e ) => Err( format!( "{}", e ) ),
     }
 }
 

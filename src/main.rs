@@ -19,7 +19,7 @@ fn repl() {
         };
         match result {
             Ok(n) => println!("Result: {}", n),
-            _ => println!("Error"),
+            Err(e) => println!("Error: {}", e),
         };
     }
 }

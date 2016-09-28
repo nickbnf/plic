@@ -10,9 +10,19 @@ pub fn plus( mut operands: Vec<PlicType> ) -> Result<PlicType,EvalError>
     Ok(PlicType::Integer(s))
 }
 
-pub fn minus( operands: Vec<PlicType> ) -> Result<PlicType,EvalError>
+pub fn minus( mut operands: Vec<PlicType> ) -> Result<PlicType,EvalError>
 {
-    Err( EvalError::Other )
+    let mut s = 0;
+    if let Some( PlicType::Integer( n ) ) = operands.pop() {
+        s = n;
+        while let Some( PlicType::Integer( n ) ) = operands.pop() {
+            s = s - n;
+        }
+        Ok(PlicType::Integer(s))
+    }
+    else {
+        Err( EvalError::Other )
+    }
 }
 
 
