@@ -6,3 +6,4 @@ authors = ["Nicolas Bonnefon <nicolas@bonnefon.org>"]
 [dependencies]
 rustyline = "1.0.0"
 matches = ">=0.1.2"
+clap = "2"
