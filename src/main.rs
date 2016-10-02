@@ -3,7 +3,7 @@
 extern crate rustyline;
 extern crate clap;
 
-use clap::{Arg, App, SubCommand};
+use clap::App;
 
 mod lexer;
 mod eval;
