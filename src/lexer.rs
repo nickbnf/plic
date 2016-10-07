@@ -14,6 +14,7 @@ pub enum Token {
     Minus,
     Multiply,
     Divide,
+    Lambda,
     Illegal,
     Number( usize ),
     Word( String ),
@@ -36,6 +37,7 @@ impl<'a> Iterator for CodeTokens<'a> {
                 '-' => Some(Token::Minus),
                 '*' => Some(Token::Multiply),
                 '/' => Some(Token::Divide),
+                'λ' => Some(Token::Lambda),
                 n @ '0' ... '9' => {
                     let mut s = String::new();
                     s.push( n );
@@ -74,7 +76,7 @@ impl<'a> Iterator for CodeTokens<'a> {
 mod tests {
     #[test]
     fn one_char_tokens() {
-        let string = "()+-*/";
+        let string = "()+-*/λ";
         let mut tokens = super::tokens( string );
         assert!( matches!( tokens.next(), Some(super::Token::ParenOpen) ) );
         assert!( matches!( tokens.next(), Some(super::Token::ParenClose) ) );
@@ -82,6 +84,7 @@ mod tests {
         assert!( matches!( tokens.next(), Some(super::Token::Minus) ) );
         assert!( matches!( tokens.next(), Some(super::Token::Multiply) ) );
         assert!( matches!( tokens.next(), Some(super::Token::Divide) ) );
+        assert!( matches!( tokens.next(), Some(super::Token::Lambda) ) );
         assert!( matches!( tokens.next(), None ) );
     }
 

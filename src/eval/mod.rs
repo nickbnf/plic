@@ -21,7 +21,9 @@ pub enum PlicType {
     /// A symbol (atom)
     Symbol(String),
     /// A pair, maybe used as the head of a list
-    Pair(HeapIndex, HeapIndex)
+    Pair(HeapIndex, HeapIndex),
+    Lambda { bound_var: String, expression: String },
+    Keyword
 }
 
 impl fmt::Display for PlicType {
@@ -30,6 +32,7 @@ impl fmt::Display for PlicType {
             &PlicType::Integer( n ) => write!(f, "{}", n),
             &PlicType::Operation { function: _ } => write!(f, "Built-in operation"),
             &PlicType::Symbol( ref s ) => write!(f, "'{}", s),
+            &PlicType::Lambda{ ref bound_var, ref expression } => write!(f, "{} => {}", bound_var, expression),
             _ => write!(f, "Unknown")
         }
     }
@@ -89,6 +92,35 @@ fn apply( operation: PlicType, operands: Vec<PlicType> ) -> Result<PlicType,Eval
     }
 }
 
+fn copy_expression<T>( mut tokens: &mut T, copy: String ) -> Result<String,EvalError>
+    where T: Iterator<Item=lexer::Token>
+{
+    if let Some(token) = tokens.next() {
+        match token {
+            lexer::Token::Number(n) => Ok( copy + &n.to_string() + " " ),
+            lexer::Token::Plus => Ok( copy + &"+ " ),
+            lexer::Token::Minus => Ok( copy + &"- " ),
+            lexer::Token::Lambda => Ok( copy + &"λ " ),
+            lexer::Token::Word(w) => Ok( copy + &w + " " ),
+            lexer::Token::ParenOpen => {
+                let mut string = copy + &"( ".to_string();
+                while let Ok( new_string ) = copy_expression( tokens, string.clone() ) {
+                    string = new_string;
+                }
+                // TODO: add error if finishes with anything else than Close
+                string = string + ") ";
+                println!( "{}", &string );
+                Ok( string )
+            },
+            lexer::Token::ParenClose => Err( EvalError::Close ),
+            _ => Err( EvalError::Other ),
+        }
+    }
+    else {
+        Err( EvalError::Other )
+    }
+}
+
 fn evaluate_expression<T>( mut tokens: &mut T, env: &mut Environment ) -> Result<PlicType,EvalError>
     where T: Iterator<Item=lexer::Token>
 {
@@ -97,6 +129,7 @@ fn evaluate_expression<T>( mut tokens: &mut T, env: &mut Environment ) -> Result
             lexer::Token::Number(n) => Ok(PlicType::Integer(n)),
             lexer::Token::Plus => Ok(PlicType::Operation { function: builtins::plus }),
             lexer::Token::Minus => Ok(PlicType::Operation { function: builtins::minus }),
+            lexer::Token::Lambda => Ok(PlicType::Keyword),
             lexer::Token::Word(w) => match w {
                 _ => match env.bindings.get(&w) {
                     Some(ref value) => { let copy = (*value).clone(); Ok(copy) },
@@ -105,14 +138,32 @@ fn evaluate_expression<T>( mut tokens: &mut T, env: &mut Environment ) -> Result
             },
             lexer::Token::ParenOpen => {
                 if let Ok(operation) = evaluate_expression( tokens, env ) {
-                    let mut operands: Vec<PlicType> = vec![];
-                    while let Ok( operand ) = evaluate_expression( tokens, env ) {
-                        operands.push( operand );
+                    // First check if we need special treatment
+                    if let PlicType::Keyword = operation {
+                        // lambda is a special form
+                        if let Ok( PlicType::Symbol(bound_sym) ) = evaluate_expression( tokens, env ) {
+                            if let Ok(s) = copy_expression( tokens, "".to_string() ) {
+                                Ok( PlicType::Lambda { bound_var: bound_sym, expression: s } )
+                            }
+                            else {
+                                Err( EvalError::Other )
+                            }
+                        }
+                        else {
+                            Err( EvalError::Other )
+                        }
                     }
-                    operands.reverse();
-                    // TODO: add error if finishes with anything else than Close
+                    else {
+                        // Applicative evaluation
+                        let mut operands: Vec<PlicType> = vec![];
+                        while let Ok( operand ) = evaluate_expression( tokens, env ) {
+                            operands.push( operand );
+                        }
+                        operands.reverse();
+                        // TODO: add error if finishes with anything else than Close
 
-                    apply( operation, operands )
+                        apply( operation, operands )
+                    }
                 }
                 else {
                     Err( EvalError::Other )
@@ -177,6 +228,26 @@ mod tests {
     }
 
     #[test]
+    fn lambda_identity() {
+        let mut env = super::Environment::new();
+        let tokens = vec![
+            lexer::Token::ParenOpen,
+            lexer::Token::Lambda,
+            lexer::Token::Word("x".to_string()),
+            lexer::Token::Word("x".to_string()),
+            lexer::Token::ParenClose,
+        ];
+
+        match super::evaluate_expression( &mut tokens.into_iter(), &mut env ) {
+            Ok( super::PlicType::Lambda { bound_var: ref b, expression: ref e } ) => {
+                assert_eq!(b, "x");
+                assert_eq!(e, "x ");
+            }
+            _ => assert!( false ),
+        }
+    }
+
+    #[test]
     fn error_non_applicable() {
         let mut env = super::Environment::new();
         let tokens = vec![
@@ -191,5 +262,67 @@ mod tests {
             matches!( super::evaluate_expression( &mut tokens.into_iter(), &mut env ),
             Err( super::EvalError::NonApplicable ) )
         );
+    }
+
+    #[test]
+    fn copy() {
+        let mut env = super::Environment::new();
+        let tokens = vec![
+            lexer::Token::ParenOpen,
+            lexer::Token::Number(1),
+            lexer::Token::Number(2),
+            lexer::Token::Number(3),
+            lexer::Token::ParenClose,
+        ];
+
+        assert_eq!( match super::copy_expression( &mut tokens.into_iter(), "".to_string() ) {
+            Ok( string ) => string,
+            _ => panic!()
+        }, "( 1 2 3 ) ".to_string() );
+    }
+
+    #[test]
+    fn copy2() {
+        let mut env = super::Environment::new();
+        let tokens = vec![
+            lexer::Token::ParenOpen,
+            lexer::Token::Number(1),
+            lexer::Token::ParenOpen,
+            lexer::Token::Number(2),
+            lexer::Token::Number(3),
+            lexer::Token::ParenClose,
+            lexer::Token::Number(3),
+            lexer::Token::ParenClose,
+        ];
+
+        assert_eq!( match super::copy_expression( &mut tokens.into_iter(), "".to_string() ) {
+            Ok( string ) => string,
+            _ => panic!()
+        }, "( 1 ( 2 3 ) 3 ) ".to_string() );
+    }
+
+    #[test]
+    fn copy3() {
+        let mut env = super::Environment::new();
+        let tokens = vec![
+            lexer::Token::ParenOpen,
+            lexer::Token::Number(1),
+            lexer::Token::ParenOpen,
+            lexer::Token::Number(2),
+            lexer::Token::ParenOpen,
+            lexer::Token::Lambda,
+            lexer::Token::Word("abc".to_string()),
+            lexer::Token::Plus,
+            lexer::Token::Minus,
+            lexer::Token::ParenClose,
+            lexer::Token::ParenClose,
+            lexer::Token::Number(3),
+            lexer::Token::ParenClose,
+        ];
+
+        assert_eq!( match super::copy_expression( &mut tokens.into_iter(), "".to_string() ) {
+            Ok( string ) => string,
+            _ => panic!()
+        }, "( 1 ( 2 ( λ abc + - ) ) 3 ) ".to_string() );
     }
 }
